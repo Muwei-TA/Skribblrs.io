@@ -1,4 +1,4 @@
-/* global socket, pad, Howl, animateCSS, language */
+/* global socket, pad, Howl, animateCSS */
 let timerID = 0;
 let hints = [];
 let drawingAllowed = false;
@@ -152,15 +152,7 @@ socket.on('settingsUpdate', (data) => {
     document.querySelector('#rounds').value = data.rounds;
     document.querySelector('#time').value = data.time;
     document.querySelector('#language').value = data.language;
-    // eslint-disable-next-line no-global-assign
-    language = data.language;
-    document.querySelector('#suggestions').innerHTML = '';
-    if (language === 'English' || language === 'Chinese') return;
-    if (document.querySelector('#transliterate')) return;
-    const script = document.createElement('script');
-    script.id = 'transliterate';
-    script.src = 'js/transliterate.js';
-    document.body.append(script);
+
 });
 
 socket.on('hints', (data) => { hints = data; });

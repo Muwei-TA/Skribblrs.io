@@ -119,8 +119,7 @@ class Game {
         const currentWord = (room.currentWord || '').toLowerCase();
         const guess = message.toLowerCase();
         const distance = leven(guess, currentWord);
-        const closeGuess = room.language === 'Chinese'
-            ? splitter.countGraphemes(currentWord) >= 3 && distance === 1 : distance < 3;
+        const closeGuess = splitter.countGraphemes(currentWord) >= 3 && distance === 1;
         if (currentWord && room.phase === 'drawing' && distance === 0) {
             socket.emit('message', data);
             if (room.drawer !== socket.id && !socket.hasGuessed) {

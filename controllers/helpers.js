@@ -17,7 +17,7 @@ function getScore(startTime, roundtime) {
 
 function populateDisplayTime(hints, roomID) {
     const roundTime = games[roomID].time;
-    const startTime = Math.floor(roundTime / (games[roomID].language === 'Chinese' ? 3 : 2));
+    const startTime = Math.floor(roundTime / 3);
     const hintInterval = Math.floor(startTime / hints.length);
     return hints.map((hint, i) => ({
         hint,
@@ -30,9 +30,7 @@ function getHints(word, roomID) {
     const graphemes = splitter.splitGraphemes(word);
     const positions = graphemes.map((char, index) => (char !== ' ' ? index : -1))
         .filter((index) => index !== -1);
-    const isChinese = games[roomID].language === 'Chinese';
-    const hintsCount = isChinese
-        ? Math.floor(positions.length / 3) : Math.floor(0.7 * positions.length);
+    const hintsCount = Math.floor(positions.length / 3);
     let prevHint = graphemes.map((char) => (char !== ' ' ? '_' : ' '));
     chance.pickset(positions, hintsCount).forEach((pos) => {
         prevHint = [...prevHint.slice(0, pos), graphemes[pos], ...prevHint.slice(pos + 1)];

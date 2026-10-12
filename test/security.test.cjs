@@ -100,6 +100,8 @@ test('only hosts can configure/start games and only the current drawer can choos
     assert.equal((await guest.request('settingsUpdate', settings)).code, 'FORBIDDEN');
     assert.equal((await guest.request('startGame')).code, 'FORBIDDEN');
     assert.equal((await host.request('settingsUpdate', { ...settings, language: '__proto__' })).code, 'INVALID_INPUT');
+    assert.equal((await host.request('settingsUpdate', { ...settings, language: 'English' })).code, 'INVALID_INPUT');
+    assert.equal((await host.request('settingsUpdate', { ...settings, language: 'Hindi' })).code, 'INVALID_INPUT');
     assert.equal((await host.request('settingsUpdate', { ...settings, time: Infinity })).code, 'INVALID_INPUT');
     assert.equal((await host.request('settingsUpdate', settings)).ok, true);
     host.send('startGame'); await host.event('chooseWord');

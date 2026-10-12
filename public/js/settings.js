@@ -1,10 +1,8 @@
-/* eslint-disable func-names */
 /* global io, my, Howl */
 const socket = io();
 const params = window.location.toString().substring(window.location.toString().indexOf('?'));
 const searchParams = new URLSearchParams(params);
 const copyBtn = document.querySelector('#copy');
-let language = document.querySelector('#language').value;
 
 const pop = new Howl({
     src: ['audio/pop.mp3'],
@@ -149,7 +147,6 @@ if (searchParams.has('id')) {
     document.querySelector('#time').addEventListener('input', updateSettings);
     document.querySelector('#customWords').addEventListener('change', updateSettings);
     document.querySelector('#probability').addEventListener('change', updateSettings);
-    document.querySelector('#language').addEventListener('change', updateSettings);
     document.querySelector('#createRoom').addEventListener('click', async () => {
         my.id = socket.id;
         if (!await requestOperation('newPrivateRoom', my)) return;
@@ -170,15 +167,4 @@ copyBtn.addEventListener('click', (e) => {
 
 document.querySelector('#startGame').addEventListener('click', async () => {
     socket.emit('startGame');
-});
-
-document.querySelector('#language').addEventListener('input', function () {
-    language = this.value;
-    document.querySelector('#suggestions').innerHTML = '';
-    if (language === 'English' || language === 'Chinese') return;
-    if (document.querySelector('#transliterate')) return;
-    const script = document.createElement('script');
-    script.id = 'transliterate';
-    script.src = 'js/transliterate.js';
-    document.body.append(script);
 });

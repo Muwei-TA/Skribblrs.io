@@ -29,7 +29,7 @@ The app will run by default on port 3000. Open your browser and go to [http://lo
 ## 简体中文游戏
 
 新建房间默认使用简体中文词库，内置 633 个常见词语，涵盖动物、食物、物品、交通、场景和动作。
-房主可以在“词库语言”中切换英语等其他语言；新加入的玩家会同步房间的当前语言和设置。
+游戏仅保留简体中文词库；新加入的玩家会同步房间的当前设置。
 自定义词语每行一个，至少填写三个不同词语后生效，可通过出现概率调整出题比例。
 
 中文使用系统输入法直接输入；确认输入法候选词时不会提前发送猜测。
@@ -96,7 +96,7 @@ docker compose down
 应用无需数据库或持久化卷；房间和游戏状态存放在内存中，重启或更新容器会清空这些状态。
 建议部署一个实例；多实例部署需要另行实现共享状态和 Socket.IO 会话协调。
 使用 Nginx 等反向代理时，需配置 WebSocket 升级转发。
-浏览器仍需访问外部 CDN、头像服务及可选的转写服务。
+浏览器仍需访问外部 CDN 和头像服务。
 
 如果构建网络需要代理，可通过 `docker compose build --build-arg HTTP_PROXY --build-arg HTTPS_PROXY`
 传入已配置的代理环境变量。如果代理还需要自定义 CA，可在构建时使用
@@ -126,7 +126,6 @@ CA 仅供依赖安装使用，不会保存在镜像中。保持证书校验开�
     - [Howler.js](https://github.com/goldfire/howler.js)
     - [DiceBear Avatars](https://github.com/DiceBear/avatars)
     - [Bootstrap](https://github.com/twbs/bootstrap)
-    - [Varnam Transliteration API](https://github.com/varnamproject)
 
 
 ## Credits

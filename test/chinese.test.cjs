@@ -14,11 +14,14 @@ test('Chinese word bank contains hundreds of unique drawable words', () => {
     assert.ok(words.chinese.every((word) => /^[\u4e00-\u9fff]{1,8}$/.test(word)));
 });
 
-test('host and guest pages default to Simplified Chinese and retain English', async () => {
+test('host and guest pages only offer Simplified Chinese', async () => {
     for (const roomID of [undefined, 'invited-room']) {
         const html = await ejs.renderFile('views/index.ejs', { roomID });
         assert.ok(/value="Chinese" selected>简体中文<\/option>/.test(html));
-        assert.ok(/value="English">英语<\/option>/.test(html));
+        const menu = html.match(/<select id="language"[\s\S]*?<\/select>/)[0];
+        assert.equal((menu.match(/<option /g) || []).length, 1);
+        assert.ok(html.includes('<option value="2" selected>2</option>'));
+        assert.ok(html.includes('<option value="40" selected>40</option>'));
     }
 });
 
@@ -44,28 +47,10 @@ test('short Chinese words reveal no characters; longer words get limited late hi
     }
 });
 
-test('English picking and hints remain available', () => {
+test('removed language word banks cannot be selected', () => {
+    assert.deepEqual(Object.keys(words), ['chinese']);
     global.games = { english: { language: 'English', time: 60000, customWords: [] } };
-    assert.ok(get3Words('english').every((word) => words.english.includes(word)));
-    assert.equal(getHints('apple', 'english').length, 3);
-});
-
-test('Chinese input never calls the unsupported transliteration API', async () => {
-    let onInput;
-    const input = { value: '苹果', addEventListener(event, callback) { onInput = callback; } };
-    const suggestions = { innerHTML: '' };
-    let requests = 0;
-    const context = {
-        language: 'Chinese',
-        document: { querySelector: (selector) => (selector === '#suggestions' ? suggestions : input) },
-        fetch: async () => { requests++; return { json: async () => ({ result: [] }) }; },
-    };
-    vm.runInNewContext(readFileSync('public/js/transliterate.js', 'utf8'), context);
-    await onInput.call(input);
-    assert.equal(requests, 0);
-    context.language = 'English';
-    await onInput.call(input);
-    assert.equal(requests, 0);
+    assert.throws(() => get3Words('english'));
 });
 
 function browser() {
@@ -84,7 +69,6 @@ function browser() {
             addEventListener(event, callback) { this.listeners[event] = callback; }, setAttribute() {} };
     }
     function node(selector) {
-        if (selector === '#transliterate') return appended.find((item) => item.id === 'transliterate') || null;
         if (!nodes.has(selector)) nodes.set(selector, element());
         return nodes.get(selector);
     }
@@ -112,14 +96,11 @@ function browser() {
 test('Chinese defaults and room updates do not load transliteration scripts', () => {
     const page = browser();
     vm.runInContext(readFileSync('public/js/settings.js', 'utf8'), page.context);
-    assert.equal(vm.runInContext('language', page.context), 'Chinese');
-    page.node('#language').listeners.input.call(page.node('#language'));
     assert.equal(page.appended.length, 0);
     vm.runInContext(readFileSync('public/js/game.js', 'utf8'), page.context);
     page.handlers.settingsUpdate({ language: 'Chinese', rounds: 2, time: 40 });
     assert.equal(page.appended.length, 0);
-    page.handlers.settingsUpdate({ language: 'Hindi', rounds: 2, time: 40 });
-    assert.equal(page.appended[0].src, 'js/transliterate.js');
+    assert.equal(page.node('#language').value, 'Chinese');
 });
 
 test('confirming Chinese input composition does not prematurely send or clear a guess', () => {
@@ -241,12 +222,12 @@ test('real WebSocket clients synchronize language, guess Chinese words and earn 
     const guest = await connect(port, sockets);
     guest.send('joinRoom', { id: gameID, player: { name: '玩家', avatar: '/images/socket.io.png' } });
     assert.equal((await guest.event('settingsUpdate')).language, 'Chinese');
-    host.send('settingsUpdate', { language: 'English', rounds: 1, time: 30, probability: 0, customWords: [] });
-    assert.equal((await guest.event('settingsUpdate')).language, 'English');
+    host.send('settingsUpdate', { language: 'Chinese', rounds: 1, time: 30, probability: 0, customWords: [] });
+    assert.equal((await guest.event('settingsUpdate')).language, 'Chinese');
     const lateGuest = await connect(port, sockets);
     lateGuest.send('joinRoom', { id: gameID, player: { name: '后来玩家', avatar: '/images/socket.io.png' } });
     const settings = await lateGuest.event('settingsUpdate');
-    assert.equal(settings.language, 'English');
+    assert.equal(settings.language, 'Chinese');
     assert.equal(settings.time, 30);
     host.send('settingsUpdate', { language: 'Chinese', rounds: 1, time: 30, probability: 1, customWords: ['苹果', '自行车', '公共汽车'] });
     assert.equal((await guest.event('settingsUpdate')).language, 'Chinese');
