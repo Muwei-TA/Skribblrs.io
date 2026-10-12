@@ -29,7 +29,7 @@ function text(value, limit, allowEmpty = false) {
 function player(value, id) {
     record(value);
     const name = text(value.name, 32);
-    const avatar = text(value.avatar || '/images/socket.io.png', 2048);
+    const avatar = text(value.avatar || '/images/avatar-default.svg', 2048);
     ensure((avatar.startsWith('/') && !avatar.startsWith('//')) || /^https?:\/\//i.test(avatar));
     return {
         id, name, avatar, score: 0,

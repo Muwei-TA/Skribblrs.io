@@ -68,6 +68,7 @@ function createScoreCard(players) {
         const name = document.createTextNode(player.name);
         const score = document.createTextNode('得分：0');
 
+        img.addEventListener('error', () => { img.src = '/images/avatar-default.svg'; }, { once: true });
         img.src = player.avatar;
         img.classList.add('img-fluid', 'rounded-circle');
         div.classList.add('row', 'justify-content-end', 'py-1', 'align-items-center');
@@ -225,6 +226,7 @@ socket.on('endGame', async ({ stats }) => {
         const score = document.createElement('p');
         const avatar = new Image();
 
+        avatar.addEventListener('error', () => { avatar.src = '/images/avatar-default.svg'; }, { once: true });
         avatar.src = stats[playerID].avatar;
         name.textContent = stats[playerID].name;
         score.textContent = stats[playerID].score;

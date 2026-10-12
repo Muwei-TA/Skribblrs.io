@@ -43,6 +43,7 @@ function putPlayer(player) {
     const img = document.createElement('img');
     const p = document.createElement('p');
     const text = document.createTextNode(player.name);
+    img.addEventListener('error', () => { img.src = '/images/avatar-default.svg'; }, { once: true });
     div.id = `skribblr-${player.id}`;
     p.appendChild(text);
     p.classList.add('text-center');
@@ -50,13 +51,11 @@ function putPlayer(player) {
     img.alt = player.name;
     img.classList.add('img-fluid', 'rounded-circle');
     div.classList.add('col-4', 'col-sm-3', 'col-md-4', 'col-lg-3');
-    img.onload = async () => {
-        div.appendChild(img);
-        div.appendChild(p);
-        document.querySelector('#playersDiv').appendChild(div);
-        pop.play();
-        await animateCSS(div, 'fadeInDown', false);
-    };
+    div.appendChild(img);
+    div.appendChild(p);
+    document.querySelector('#playersDiv').appendChild(div);
+    pop.play();
+    animateCSS(div, 'fadeInDown', false);
 }
 
 function showCanvasArea() {

@@ -1,28 +1,41 @@
 <section class="container" id="landing">
     <div class="row justify-content-center mx-0">
-        <div class="col-lg-6 bg-white rounded p-3">
+        <div class="col-lg-8 col-xl-7 bg-white rounded p-3">
+            <header class="text-center mb-4">
+                <h1 class="landing-title fw-bold mb-2">你画我猜</h1>
+                <p class="text-muted mb-2">画出想象，猜出答案，和好友一起玩。</p>
+                <p class="small text-muted mb-0">2–12 人联机 · 简体中文词库 · 私人房间</p>
+            </header>
+            <div class="game-guide mb-4" aria-labelledby="howToPlay">
+                <h2 id="howToPlay" class="h6 fw-bold">怎么玩</h2>
+                <ol class="mb-0 ps-3">
+                    <li><strong>邀请好友：</strong>填写昵称，创建或加入房间，用链接邀请好友。</li>
+                    <li><strong>轮流绘画：</strong>从三个词语中选一个画出来，不要直接写答案。</li>
+                    <li><strong>猜词得分：</strong>其他人在聊天框输入答案，越早猜对得分越高。</li>
+                    <li><strong>比拼总分：</strong>完成所有回合后，得分最高的玩家获胜。</li>
+                </ol>
+            </div>
             <div class="form-floating mb-3">
-                <input type="text" class="form-control" id="playerName" placeholder="昵称" required>
+                <input type="text" class="form-control" id="playerName" placeholder="昵称" maxlength="32" required>
                 <label for="playerName">昵称</label>
             </div>
             <div class="row justify-content-center mx-0">
                 <div class="col-6 col-sm-5">
                     <img id="avatar" class="img-fluid rounded-circle mb-4 mb-sm-0"
-                        src="https://avatars.dicebear.com/4.5/api/avataaars/.svg" alt="头像">
+                        src="/images/avatar-default.svg" alt="玩家头像">
+                    <p class="small text-muted text-center mt-2 mb-0">这是你的游戏头像，其他玩家会在房间里看到它。</p>
+                    <p id="avatarStatus" class="small text-muted text-center mt-1 mb-0" role="status" aria-live="polite"></p>
                 </div>
                 <div class="col-sm-7">
                     <div class="input-group mb-3">
                         <label class="input-group-text" for="style">头像风格</label>
                         <select class="form-select" id="style">
-                            <option value="Avataaars" selected>卡通人物</option>
-                            <option value="Bottts">机器人</option>
-                            <option value="Female">女性</option>
-                            <option value="Gridy">网格图案</option>
-                            <option value="Human">人物</option>
-                            <option value="Identicon">几何图案</option>
-                            <option value="Initials">姓名首字母</option>
-                            <option value="Jdenticon">对称图案</option>
-                            <option value="Male">男性</option>
+                            <option value="avataaars" selected>卡通人物</option>
+                            <option value="bottts">机器人</option>
+                            <option value="adventurer">冒险家</option>
+                            <option value="lorelei">手绘人物</option>
+                            <option value="identicon">几何图案</option>
+                            <option value="initials">姓名首字母</option>
                         </select>
                     </div>
                     <div class="input-group mb-3">

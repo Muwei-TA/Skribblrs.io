@@ -28,6 +28,39 @@ a:hover {
     overflow-y: auto;
 }
 
+#landing {
+    max-height: calc(100vh - 5rem);
+    overflow-y: auto;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.landing-title {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    color: #1d4ed8;
+}
+
+.game-guide {
+    padding: 1rem;
+    background: #eff6ff;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.game-guide li + li {
+    margin-top: 0.4rem;
+}
+
+#avatar {
+    width: 100%;
+    max-width: 128px;
+    aspect-ratio: 1;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 /* canvas */
 
 canvas {
