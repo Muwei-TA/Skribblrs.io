@@ -20,29 +20,10 @@
                 <label for="playerName">昵称</label>
             </div>
             <div class="row justify-content-center mx-0">
-                <div class="col-6 col-sm-5">
+                <div class="col-12">
                     <img id="avatar" class="img-fluid rounded-circle mb-4 mb-sm-0"
                         src="/images/avatar-default.svg" alt="玩家头像">
                     <p class="small text-muted text-center mt-2 mb-0">这是你的游戏头像，其他玩家会在房间里看到它。</p>
-                    <p id="avatarStatus" class="small text-muted text-center mt-1 mb-0" role="status" aria-live="polite"></p>
-                </div>
-                <div class="col-sm-7">
-                    <div class="input-group mb-3">
-                        <label class="input-group-text" for="style">头像风格</label>
-                        <select class="form-select" id="style">
-                            <option value="avataaars" selected>卡通人物</option>
-                            <option value="bottts">机器人</option>
-                            <option value="adventurer">冒险家</option>
-                            <option value="lorelei">手绘人物</option>
-                            <option value="identicon">几何图案</option>
-                            <option value="initials">姓名首字母</option>
-                        </select>
-                    </div>
-                    <div class="input-group mb-3">
-                        <label class="input-group-text" for="bgColor" class="form-label">背景颜色</label>
-                        <input type="color" class="form-control form-control-color" id="bgColor" value="#FFFFFF"
-                            title="选择背景颜色">
-                    </div>
                 </div>
                 <% if(!roomID) { %>
                     <button class="btn btn-primary mt-3" id="createRoom">创建私人房间</button>
