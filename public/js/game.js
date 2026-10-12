@@ -55,7 +55,7 @@ function createScoreCard(players) {
         const p1 = document.createElement('p');
         const p2 = document.createElement('p');
         const name = document.createTextNode(player.name);
-        const score = document.createTextNode('Score: 0');
+        const score = document.createTextNode('得分：0');
 
         img.src = player.avatar;
         img.classList.add('img-fluid', 'rounded-circle');
@@ -97,7 +97,14 @@ function startTimer(ms) {
 
 function appendMessage({ name = '', message, id }, { correctGuess = false, closeGuess = false, lastWord = false } = {}) {
     const p = document.createElement('p');
-    const chat = document.createTextNode(`${message}`);
+    let displayMessage = message;
+    if (closeGuess) displayMessage = '非常接近了！';
+    if (correctGuess) {
+        displayMessage = message === 'You guessed it right!'
+            ? '你猜对了！'
+            : `${message.replace(/ has guessed the word!$/, '')} 猜对了词语！`;
+    }
+    const chat = document.createTextNode(`${displayMessage}`);
     const messages = document.querySelector('.messages');
     if (name !== '') {
         const span = document.createElement('span');
@@ -121,7 +128,7 @@ function appendMessage({ name = '', message, id }, { correctGuess = false, close
 socket.on('getPlayers', (players) => createScoreCard(players));
 socket.on('choosing', ({ name }) => {
     const p = document.createElement('p');
-    p.textContent = `${name} is choosing a word`;
+    p.textContent = `${name} 正在选择词语`;
     p.classList.add('lead', 'fw-bold', 'mb-0');
     document.querySelector('#wordDiv').innerHTML = '';
     document.querySelector('#wordDiv').append(p);
@@ -151,7 +158,7 @@ socket.on('chooseWord', async ([word1, word2, word3]) => {
     const btn1 = document.createElement('button');
     const btn2 = document.createElement('button');
     const btn3 = document.createElement('button');
-    const text = document.createTextNode('Choose a word');
+    const text = document.createTextNode('请选择一个词语');
     btn1.classList.add('btn', 'btn-outline-success', 'rounded-pill', 'mx-2');
     btn3.classList.add('btn', 'btn-outline-success', 'rounded-pill', 'mx-2');
     btn2.classList.add('btn', 'btn-outline-success', 'rounded-pill', 'mx-2');
@@ -187,7 +194,7 @@ socket.on('startTimer', ({ time }) => startTimer(time));
 socket.on('message', appendMessage);
 socket.on('closeGuess', (data) => appendMessage(data, { closeGuess: true }));
 socket.on('correctGuess', (data) => appendMessage(data, { correctGuess: true }));
-socket.on('lastWord', ({ word }) => appendMessage({ message: `The word was ${word}` }, { lastWord: true }));
+socket.on('lastWord', ({ word }) => appendMessage({ message: `本轮词语是：${word}` }, { lastWord: true }));
 
 socket.on('updateScore', ({
     playerID,
@@ -195,8 +202,8 @@ socket.on('updateScore', ({
     drawerID,
     drawerScore,
 }) => {
-    document.querySelector(`#skribblr-${playerID}>div p:last-child`).textContent = `Score: ${score}`;
-    document.querySelector(`#skribblr-${drawerID}>div p:last-child`).textContent = `Score: ${drawerScore}`;
+    document.querySelector(`#skribblr-${playerID}>div p:last-child`).textContent = `得分：${score}`;
+    document.querySelector(`#skribblr-${drawerID}>div p:last-child`).textContent = `得分：${drawerScore}`;
 });
 
 socket.on('endGame', async ({ stats }) => {

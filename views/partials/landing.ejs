@@ -2,39 +2,39 @@
     <div class="row justify-content-center mx-0">
         <div class="col-lg-6 bg-white rounded p-3">
             <div class="form-floating mb-3">
-                <input type="text" class="form-control" id="playerName" placeholder="Name" required>
-                <label for="playerName">Name</label>
+                <input type="text" class="form-control" id="playerName" placeholder="昵称" required>
+                <label for="playerName">昵称</label>
             </div>
             <div class="row justify-content-center mx-0">
                 <div class="col-6 col-sm-5">
                     <img id="avatar" class="img-fluid rounded-circle mb-4 mb-sm-0"
-                        src="https://avatars.dicebear.com/4.5/api/avataaars/.svg" alt="Avatar">
+                        src="https://avatars.dicebear.com/4.5/api/avataaars/.svg" alt="头像">
                 </div>
                 <div class="col-sm-7">
                     <div class="input-group mb-3">
-                        <label class="input-group-text" for="style">Style</label>
+                        <label class="input-group-text" for="style">头像风格</label>
                         <select class="form-select" id="style">
-                            <option value="Avataaars" selected>Avataaars</option>
-                            <option value="Bottts">Bottts</option>
-                            <option value="Female">Female</option>
-                            <option value="Gridy">Gridy</option>
-                            <option value="Human">Human</option>
-                            <option value="Identicon">Identicon</option>
-                            <option value="Initials">Initials</option>
-                            <option value="Jdenticon">Jdenticon</option>
-                            <option value="Male">Male</option>
+                            <option value="Avataaars" selected>卡通人物</option>
+                            <option value="Bottts">机器人</option>
+                            <option value="Female">女性</option>
+                            <option value="Gridy">网格图案</option>
+                            <option value="Human">人物</option>
+                            <option value="Identicon">几何图案</option>
+                            <option value="Initials">姓名首字母</option>
+                            <option value="Jdenticon">对称图案</option>
+                            <option value="Male">男性</option>
                         </select>
                     </div>
                     <div class="input-group mb-3">
-                        <label class="input-group-text" for="bgColor" class="form-label">Background Color</label>
+                        <label class="input-group-text" for="bgColor" class="form-label">背景颜色</label>
                         <input type="color" class="form-control form-control-color" id="bgColor" value="#FFFFFF"
-                            title="Choose your color">
+                            title="选择背景颜色">
                     </div>
                 </div>
                 <% if(!roomID) { %>
-                    <button class="btn btn-primary mt-3" id="createRoom">Create Private Room</button>
+                    <button class="btn btn-primary mt-3" id="createRoom">创建私人房间</button>
                 <% } else { %>
-                    <button class="btn btn-primary mt-3" id="playGame">Join Room</button>
+                    <button class="btn btn-primary mt-3" id="playGame">加入房间</button>
                 <% } %>
             </div>
         </div>

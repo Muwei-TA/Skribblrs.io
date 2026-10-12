@@ -1,9 +1,9 @@
 <section class="container d-none" id="settings">
     <div class="row justify-content-between mx-0">
         <div class="col-md-6 order-2 order-md-0 bg-white rounded h-100 p-3">
-            <h1 class="text-center">Settings</h1>
+            <h1 class="text-center">游戏设置</h1>
             <div class="input-group mb-3">
-                <label class="input-group-text" for="rounds">Rounds</label>
+                <label class="input-group-text" for="rounds">回合数</label>
                 <select class="form-select" id="rounds">
                     <option value="2" selected>2</option>
                     <option value="3">3</option>
@@ -17,7 +17,7 @@
                 </select>
             </div>
             <div class="input-group mb-3">
-                <label class="input-group-text" for="time">Draw time in seconds</label>
+                <label class="input-group-text" for="time">绘画时间（秒）</label>
                 <select class="form-select" id="time">
                     <option value="30">30</option>
                     <option value="40" selected>40</option>
@@ -38,46 +38,46 @@
                 </select>
             </div>
             <div class="input-group mb-3">
-                <label for="language" class="input-group-text">Select Language</label>
+                <label for="language" class="input-group-text">词库语言</label>
                 <select id="language" class="form-select">
-                    <option value="Assamese">Assamese</option>
-                    <option value="Bengali">Bengali</option>
-                    <option value="English" selected>English</option>
-                    <option value="Gujarati">Gujarati</option>
-                    <option value="Hindi">Hindi</option>
-                    <option value="Kannada">Kannada</option>
-                    <option value="Malayalam">Malayalam</option>
-                    <option value="Nepali">Nepali</option>
-                    <option value="Oriya">Oriya</option>
-                    <option value="Punjabi">Punjabi</option>
-                    <option value="Tamil">Tamil</option>
-                    <option value="Telugu">Telugu</option>
+                    <option value="Assamese">阿萨姆语</option>
+                    <option value="Bengali">孟加拉语</option>
+                    <option value="English" selected>英语</option>
+                    <option value="Gujarati">古吉拉特语</option>
+                    <option value="Hindi">印地语</option>
+                    <option value="Kannada">卡纳达语</option>
+                    <option value="Malayalam">马拉雅拉姆语</option>
+                    <option value="Nepali">尼泊尔语</option>
+                    <option value="Oriya">奥里亚语</option>
+                    <option value="Punjabi">旁遮普语</option>
+                    <option value="Tamil">泰米尔语</option>
+                    <option value="Telugu">泰卢固语</option>
                 </select>
             </div>
             <% if(!roomID) { %>
             <div class="input-group mb-3">
-                <label class="input-group-text" for="customeWords">Custom words</label>
-                <textarea class="form-control" placeholder="word1&#10;word2&#10;word3" id="customWords"
+                <label class="input-group-text" for="customeWords">自定义词语</label>
+                <textarea class="form-control" placeholder="词语一&#10;词语二&#10;词语三" id="customWords"
                     style="height: 20vh; resize:none"></textarea>
             </div>
             <div class="mb-3">
-                <label for="probability" class="form-label">Custom words probability</label>
+                <label for="probability" class="form-label">自定义词语出现概率</label>
                 <input type="range" class="form-range" min="0" max="1" step="0.01" id="probability">
             </div>
             <% } %>
-            <button class="btn btn-primary w-100" id="startGame">Start Game</button>
+            <button class="btn btn-primary w-100" id="startGame">开始游戏</button>
         </div>
         <div class="col-md-6 text-white h-100 p-3">
-            <h1 class="text-center">Players</h1>
+            <h1 class="text-center">玩家列表</h1>
             <div class="row mt-4 mx-0" style="height: 20em; overflow-y: auto;" id="playersDiv"></div>
         </div>
     </div>
     <div class="mt-5">
-        <h1 class="text-white text-center">Invite your friends!</h1>
+        <h1 class="text-white text-center">邀请好友一起玩！</h1>
         <div class="input-group mb-3">
             <input type="text" id="gameLink" class="form-control text-center fw-bold bg-white"
                 value="http://localhost:3000/" readonly>
-            <button class="btn btn-warning" type="button" id="copy">Copy Link</button>
+            <button class="btn btn-warning" type="button" id="copy">复制链接</button>
         </div>
     </div>
 </section>
