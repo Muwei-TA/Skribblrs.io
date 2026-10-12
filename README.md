@@ -26,6 +26,41 @@ npm run start
 
 The app will run by default on port 3000. Open your browser and go to [http://localhost:3000](http://localhost:3000).
 
+## Docker 部署
+
+需要安装 Docker Engine 和 Docker Compose v2。在仓库根目录运行：
+
+```bash
+docker compose up -d --build
+```
+
+应用默认使用宿主机的 3000 端口。浏览器访问服务器地址的 3000 端口即可。
+如需改用其他宿主机端口（例如 8080）：
+
+```bash
+HOST_PORT=8080 docker compose up -d --build
+```
+
+查看状态和日志、停止服务：
+
+```bash
+docker compose ps
+docker compose logs -f skribblrs
+docker compose down
+```
+
+拉取代码更新后，再次执行 `docker compose up -d --build` 即可重新构建并部署。
+镜像使用 Node.js 24，以非 root 用户运行，仅安装生产依赖，并内置 HTTP 健康检查。
+应用无需数据库或持久化卷；房间和游戏状态存放在内存中，重启或更新容器会清空这些状态。
+建议部署一个实例；多实例部署需要另行实现共享状态和 Socket.IO 会话协调。
+使用 Nginx 等反向代理时，需配置 WebSocket 升级转发。
+浏览器仍需访问外部 CDN、头像服务及可选的转写服务。
+
+如果构建网络需要代理，可通过 `docker compose build --build-arg HTTP_PROXY --build-arg HTTPS_PROXY`
+传入已配置的代理环境变量。如果代理还需要自定义 CA，可在构建时使用
+`docker build --secret id=npm_ca,src=/path/to/trusted-ca.pem -t skribblrs .`；
+CA 仅供依赖安装使用，不会保存在镜像中。保持证书校验开启。
+
 ## Screenshots
 
 | ![Landing page][landing]  | ![Landing page][settings] |
