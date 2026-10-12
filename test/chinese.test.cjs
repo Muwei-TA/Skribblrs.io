@@ -124,9 +124,14 @@ test('confirming Chinese input composition does not prematurely send or clear a 
 test('the host waits for server approval before switching to the game canvas', async () => {
     const page = browser();
     vm.runInContext(readFileSync('public/js/settings.js', 'utf8'), page.context);
+    vm.runInContext(readFileSync('public/js/word-bank.js', 'utf8'), page.context);
+    page.context.TextEncoder = TextEncoder;
+    page.node('#customWords').value = '';
+    page.node('#probability').value = '0.5';
+    vm.runInContext("socket.timeout = () => ({ emit: (event, data, callback) => { socket.emit(event, data); callback(null, { ok: true }); } })", page.context);
     await page.node('#startGame').listeners.click();
     assert.equal(page.appended.length, 0);
-    assert.deepEqual(page.emitted.map((args) => args[0]), ['startGame']);
+    assert.deepEqual(page.emitted.map((args) => args[0]), ['settingsUpdate', 'startGame']);
 });
 
 test('pages use the Socket.IO client supplied by the installed server', async () => {

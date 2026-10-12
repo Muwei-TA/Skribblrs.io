@@ -44,14 +44,22 @@
                 </select>
             </div>
             <% if(!roomID) { %>
+            <div class="mb-3">
+                <label for="wordBankFile" class="form-label">上传自定义词库</label>
+                <input type="file" id="wordBankFile" class="form-control" accept=".txt,text/plain"
+                    aria-describedby="wordBankHelp wordBankStatus">
+                <p id="wordBankHelp" class="form-text mb-1">UTF-8 TXT 文件，每行一个词语，3–100 个不同词语，每个不超过 40 字，文件不超过 16 KB。导入将替换下方词语，仅用于当前房间。</p>
+                <p id="wordBankStatus" class="small mb-0" role="status" aria-live="polite"></p>
+            </div>
             <div class="input-group mb-3">
-                <label class="input-group-text" for="customeWords">自定义词语</label>
+                <label class="input-group-text" for="customWords">自定义词语</label>
                 <textarea class="form-control" placeholder="词语一&#10;词语二&#10;词语三" id="customWords"
                     style="height: 20vh; resize:none"></textarea>
             </div>
             <div class="mb-3">
                 <label for="probability" class="form-label">自定义词语出现概率</label>
-                <input type="range" class="form-range" min="0" max="1" step="0.01" id="probability">
+                <input type="range" class="form-range" min="0" max="1" step="0.01" id="probability" value="0.5">
+                <p class="form-text mb-0">100% 时仅使用自定义词库；调低可与内置词库混合。当前：<output id="probabilityValue" for="probability">50%</output></p>
             </div>
             <% } %>
             <button class="btn btn-primary w-100" id="startGame">开始游戏</button>

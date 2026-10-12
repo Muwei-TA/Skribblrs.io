@@ -1,5 +1,6 @@
 /* global games */
 const words = require('../words.json');
+const WordBank = require('../public/js/word-bank');
 
 class GameError extends Error {
     constructor(code, message) {
@@ -50,12 +51,21 @@ function settings(value) {
     const inputLanguage = text(value.language, 20);
     const language = inputLanguage[0].toUpperCase() + inputLanguage.slice(1).toLowerCase();
     ensure(Object.hasOwn(words, language.toLowerCase()), 'INVALID_INPUT', '不支持该词库语言');
-    ensure(Array.isArray(value.customWords) && value.customWords.length <= 100);
-    const customWords = [...new Set(value.customWords.map((word) => text(word, 40)))];
+    const probability = number(value.probability, 0, 1);
+    let customWords;
+    try {
+        customWords = WordBank.normalizeWords(value.customWords);
+        ensure(probability !== 1 || customWords.length >= 3,
+            'INVALID_INPUT', '仅使用自定义词库时，至少需要 3 个不同词语');
+        ensure(customWords.length === 0 || probability === 0 || customWords.length >= 3,
+            'INVALID_INPUT', '词库至少需要 3 个不同词语');
+    } catch (error) {
+        throw new GameError('INVALID_INPUT', error.message);
+    }
     return {
         rounds: number(value.rounds, 1, 10, true),
         time: number(value.time, 30, 180, true) * 1000,
-        probability: number(value.probability, 0, 1),
+        probability,
         language,
         customWords,
     };

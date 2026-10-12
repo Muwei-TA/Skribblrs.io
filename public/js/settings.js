@@ -1,4 +1,4 @@
-/* global io, my, Howl */
+/* global io, my, Howl, WordBank */
 const socket = io();
 const params = window.location.toString().substring(window.location.toString().indexOf('?'));
 const searchParams = new URLSearchParams(params);
@@ -27,15 +27,72 @@ function animateCSS(element, animation, selector = true) {
     });
 }
 
-function updateSettings(e) {
-    e.preventDefault();
-    socket.emit('settingsUpdate', {
-        rounds: document.querySelector('#rounds').value,
-        time: document.querySelector('#time').value,
-        customWords: Array.from(new Set(document.querySelector('#customWords').value.split('\n').map((word) => word.trim()).filter((word) => word !== ''))),
-        probability: document.querySelector('#probability').value,
-        language: document.querySelector('#language').value,
-    });
+let importingWordBank = false;
+
+function wordBankStatus(message, failed = false) {
+    const notice = document.querySelector('#wordBankStatus');
+    notice.textContent = message;
+    notice.className = failed ? 'small mb-0 text-danger' : 'small mb-0 text-muted';
+}
+
+function updateProbabilityLabel() {
+    document.querySelector('#probabilityValue').textContent = `${Math.round(Number(document.querySelector('#probability').value) * 100)}%`;
+}
+
+async function updateSettings(e) {
+    if (e) e.preventDefault();
+    try {
+        const customWords = WordBank.parseText(document.querySelector('#customWords').value, 0);
+        const probability = document.querySelector('#probability').value;
+        if ((Number(probability) === 1 || (Number(probability) > 0 && customWords.length > 0)) && customWords.length < 3) {
+            throw new Error('词库至少需要 3 个不同词语');
+        }
+        updateProbabilityLabel();
+        const saved = await requestOperation('settingsUpdate', {
+            rounds: document.querySelector('#rounds').value,
+            time: document.querySelector('#time').value,
+            customWords,
+            probability,
+            language: document.querySelector('#language').value,
+        });
+        wordBankStatus(saved ? `已保存 ${customWords.length} 个自定义词语` : '词库未保存，请检查连接及房间状态后重试', !saved);
+        return saved;
+    } catch (error) {
+        wordBankStatus(error.message, true);
+        return false;
+    }
+}
+
+async function importWordBank() {
+    const input = document.querySelector('#wordBankFile');
+    const file = input.files[0];
+    if (!file || importingWordBank) return;
+    importingWordBank = true;
+    const controls = ['#wordBankFile', '#customWords', '#probability', '#startGame']
+        .map((selector) => document.querySelector(selector));
+    for (const control of controls) control.disabled = true;
+    wordBankStatus('正在读取词库…');
+    try {
+        if (!/\.txt$/i.test(file.name)) throw new Error('请选择 TXT 词库文件');
+        if (file.size > WordBank.maxBytes) throw new Error('词库文件不能超过 16 KB');
+        const buffer = await file.arrayBuffer();
+        let text;
+        try {
+            text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        } catch (error) {
+            throw new Error('词库编码无效，请保存为 UTF-8 后重新上传', { cause: error });
+        }
+        const words = WordBank.parseText(text);
+        document.querySelector('#customWords').value = words.join('\n');
+        document.querySelector('#probability').value = '1';
+        if (await updateSettings()) wordBankStatus(`已导入 ${words.length} 个不同词语，当前仅使用自定义词库，可继续编辑或调整概率。`);
+    } catch (error) {
+        wordBankStatus(error.message, true);
+    } finally {
+        importingWordBank = false;
+        for (const control of controls) control.disabled = false;
+        input.value = '';
+    }
 }
 
 function putPlayer(player) {
@@ -144,7 +201,9 @@ if (searchParams.has('id')) {
     // room owner
     document.querySelector('#rounds').addEventListener('input', updateSettings);
     document.querySelector('#time').addEventListener('input', updateSettings);
+    document.querySelector('#wordBankFile').addEventListener('change', importWordBank);
     document.querySelector('#customWords').addEventListener('change', updateSettings);
+    document.querySelector('#probability').addEventListener('input', updateProbabilityLabel);
     document.querySelector('#probability').addEventListener('change', updateSettings);
     document.querySelector('#createRoom').addEventListener('click', async () => {
         my.id = socket.id;
@@ -165,5 +224,6 @@ copyBtn.addEventListener('click', (e) => {
 });
 
 document.querySelector('#startGame').addEventListener('click', async () => {
-    socket.emit('startGame');
+    if (searchParams.has('id') || importingWordBank) return;
+    if (await updateSettings()) socket.emit('startGame');
 });

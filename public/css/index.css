@@ -28,7 +28,8 @@ a:hover {
     overflow-y: auto;
 }
 
-#landing {
+#landing,
+#settings {
     max-height: calc(100vh - 5rem);
     overflow-y: auto;
     padding-top: 0.5rem;
