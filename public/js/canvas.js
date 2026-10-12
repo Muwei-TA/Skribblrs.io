@@ -1,4 +1,4 @@
-/* global Sketchpad, socket, animateCSS */
+/* global Sketchpad, socket, animateCSS, drawingAllowed */
 const canvas = document.getElementById('sketchpad');
 const smBrush = document.getElementById('sm-brush');
 const mdBrush = document.getElementById('md-brush');
@@ -16,7 +16,7 @@ const current = {
     lineColor: '#000',
     lineSize: 5,
 };
-pad.setReadOnly(true);
+pad.setReadOnly(!drawingAllowed);
 
 function setLineSize() {
     if (pad.readOnly) return;
@@ -105,7 +105,7 @@ clearCanvas.addEventListener('click', () => {
 window.addEventListener('resize', () => pad.resize(canvas.offsetWidth));
 canvas.addEventListener('mousedown', onMouseDown);
 canvas.addEventListener('mouseup', throttle(onMouseUp, 10));
-canvas.addEventListener('mousemove', throttle(onMouseMove, 10));
+canvas.addEventListener('mousemove', throttle(onMouseMove, 20));
 
 socket.on('clearCanvas', () => pad.clear());
 socket.on('drawing', ({
@@ -128,5 +128,5 @@ socket.on('drawing', ({
 socket.on('disableCanvas', async () => {
     pad.setReadOnly(true);
     await animateCSS('#tools', 'fadeOutDown');
-    document.querySelector('#tools').classList.add('d-none');
+    if (!drawingAllowed) document.querySelector('#tools').classList.add('d-none');
 });

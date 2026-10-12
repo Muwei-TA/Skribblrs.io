@@ -11,6 +11,8 @@ const settings = document.createElement('script');
 const game = document.createElement('script');
 settings.src = 'js/settings.js';
 game.src = 'js/game.js';
+settings.async = false;
+game.async = false;
 document.body.append(settings, game);
 
 function updateAvatar() {
@@ -19,7 +21,7 @@ function updateAvatar() {
     const url = `${baseURL}/${sprite}/${playerName.value}.svg?b=%23${color}`;
     const newAvatar = document.createElement('img');
     newAvatar.src = url;
-    newAvatar.alt = 'Avatar';
+    newAvatar.alt = '头像';
     newAvatar.id = 'avatar';
     newAvatar.classList.add('img-fluid', 'rounded-circle', 'mb-4', 'mb-sm-0');
     newAvatar.addEventListener('load', () => {

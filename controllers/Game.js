@@ -2,11 +2,10 @@
 const leven = require('leven');
 const GraphemeSplitter = require('grapheme-splitter');
 const {
-    get3Words,
-    getScore,
-    wait,
-    getHints,
+    get3Words, getScore, wait, getHints,
 } = require('./helpers');
+const validate = require('./validation');
+const { closeRoom, refreshIdle } = require('./lifecycle');
 
 const splitter = new GraphemeSplitter();
 class Game {
@@ -15,117 +14,144 @@ class Game {
         this.socket = socket;
     }
 
-    chosenWord(playerID) {
-        const { io } = this;
-        return new Promise((resolve, reject) => {
-            function rejection(err) { reject(err); }
-            const socket = io.of('/').sockets.get(playerID);
-            socket.on('chooseWord', ({ word }) => {
-                socket.to(socket.roomID).emit('hideWord', { word: splitter.splitGraphemes(word).map((char) => (char !== ' ' ? '_' : char)).join('') });
-                socket.removeListener('disconnect', rejection);
+    chosenWord(drawerID, choices) {
+        const drawer = this.io.sockets.sockets.get(drawerID);
+        const room = games[drawer.roomID];
+        return new Promise((resolve) => {
+            let timer;
+            let cancel;
+            let onDisconnect;
+            const finish = (word) => {
+                room.phase = 'selected';
+                clearTimeout(timer);
+                drawer.removeListener('disconnect', onDisconnect);
+                if (room.cancelTurn === cancel) delete room.cancelTurn;
+                delete room.resolveChoice;
+                delete room.offeredWords;
                 resolve(word);
-            });
-            socket.once('disconnect', rejection);
+            };
+            cancel = () => finish(null);
+            onDisconnect = () => finish(null);
+            room.offeredWords = choices;
+            room.resolveChoice = finish;
+            room.cancelTurn = cancel;
+            drawer.once('disconnect', onDisconnect);
+            timer = setTimeout(() => finish(choices[1]), 15000);
         });
     }
 
-    resetGuessedFlag(players) {
-        const { io } = this;
-        players.forEach((playerID) => {
-            const player = io.of('/').sockets.get(playerID);
-            if (player) player.hasGuessed = false;
-        });
+    chooseWord(input) {
+        const room = validate.drawer(this.socket, 'choosing');
+        validate.record(input);
+        validate.ensure(typeof input.word === 'string' && room.offeredWords.includes(input.word));
+        room.resolveChoice(input.word);
     }
 
     async startGame() {
         const { io, socket } = this;
-        const { rounds } = games[socket.roomID];
-        const players = Array.from(await io.in(socket.roomID).allSockets());
-        socket.to(socket.roomID).emit('startGame');
-        for (let j = 0; j < rounds; j++) {
-            /* eslint-disable no-await-in-loop */
-            for (let i = 0; i < players.length; i++) {
-                await this.giveTurnTo(players, i);
-            }
-        }
-        io.to(socket.roomID).emit('endGame', { stats: games[socket.roomID] });
-        delete games[socket.roomID];
-    }
-
-    async giveTurnTo(players, i) {
-        const { io, socket } = this;
+        const room = validate.host(socket);
+        validate.ensure(room.state === 'lobby', 'INVALID_STATE', '游戏已经开始');
+        const players = Object.keys(room.players);
+        validate.ensure(players.length >= 2, 'INVALID_STATE', '至少需要两名玩家才能开始');
         const { roomID } = socket;
-        const { time } = games[roomID];
-        const player = players[i];
-        const prevPlayer = players[(i - 1 + players.length) % players.length];
-        const drawer = io.of('/').sockets.get(player);
-        if (!drawer || !games[roomID]) return;
-        this.resetGuessedFlag(players);
-        games[roomID].totalGuesses = 0;
-        games[roomID].currentWord = '';
-        games[roomID].drawer = player;
-        io.to(prevPlayer).emit('disableCanvas');
-        drawer.to(roomID).broadcast.emit('choosing', { name: drawer.player.name });
-        io.to(player).emit('chooseWord', get3Words(roomID));
+        room.state = 'playing';
+        clearTimeout(room.idleTimer);
+        io.to(roomID).emit('startGame');
+        io.to(roomID).emit('getPlayers', Object.values(room.players));
         try {
-            const word = await this.chosenWord(player);
-            games[roomID].currentWord = word;
-            io.to(roomID).emit('clearCanvas');
-            drawer.to(roomID).broadcast.emit('hints', getHints(word, roomID));
-            games[roomID].startTime = Date.now() / 1000;
-            io.to(roomID).emit('startTimer', { time });
-            if (await wait(roomID, drawer, time)) drawer.to(roomID).broadcast.emit('lastWord', { word });
-        } catch (error) {
-            console.log(error);
-        }
-    }
-
-    onMessage(data) {
-        const { io, socket } = this;
-        const guess = data.message.toLowerCase().trim();
-        if (guess === '') return;
-        const currentWord = games[socket.roomID].currentWord.toLowerCase();
-        const distance = leven(guess, currentWord);
-        if (distance === 0 && currentWord !== '') {
-            socket.emit('message', { ...data, name: socket.player.name });
-            if (games[socket.roomID].drawer !== socket.id && !socket.hasGuessed) {
-                const drawer = io.of('/').sockets.get(games[socket.roomID].drawer);
-                const { startTime } = games[socket.roomID];
-                const roundTime = games[socket.roomID].time;
-                const roomSize = io.sockets.adapter.rooms.get(socket.roomID).size;
-                socket.emit('correctGuess', { message: 'You guessed it right!', id: socket.id });
-                socket.broadcast.emit('correctGuess', { message: `${socket.player.name} has guessed the word!`, id: socket.id });
-                games[socket.roomID].totalGuesses++;
-                games[socket.roomID][socket.id].score += getScore(startTime, roundTime);
-                games[socket.roomID][drawer.id].score += BONUS;
-                io.in(socket.roomID).emit('updateScore', {
-                    playerID: socket.id,
-                    score: games[socket.roomID][socket.id].score,
-                    drawerID: drawer.id,
-                    drawerScore: games[socket.roomID][drawer.id].score,
-                });
-                if (games[socket.roomID].totalGuesses === roomSize - 1) {
-                    round.emit('everybodyGuessed', { roomID: socket.roomID });
+            for (let j = 0; j < room.rounds; j++) {
+                for (let i = 0; i < players.length; i++) {
+                    if (games[roomID] !== room || room.state !== 'playing') return;
+                    // eslint-disable-next-line no-await-in-loop
+                    await this.giveTurnTo(roomID, players, i);
                 }
             }
-            socket.hasGuessed = true;
-        } else if (distance < 3 && currentWord !== '') {
-            io.in(socket.roomID).emit('message', { ...data, name: socket.player.name });
-            if (games[socket.roomID].drawer !== socket.id && !socket.hasGuessed) socket.emit('closeGuess', { message: 'That was very close!' });
-        } else {
-            io.in(socket.roomID).emit('message', { ...data, name: socket.player.name });
+        } finally {
+            if (games[roomID] === room) closeRoom(io, roomID);
         }
     }
 
-    async getPlayers() {
+    async giveTurnTo(roomID, players, index) {
+        const room = games[roomID];
+        const { io } = this;
+        const drawer = io.sockets.sockets.get(players[index]);
+        if (!drawer || !room.players[drawer.id]) return;
+        Object.keys(room.players).forEach((id) => {
+            const player = io.sockets.sockets.get(id);
+            if (player) player.hasGuessed = false;
+        });
+        room.currentWord = '';
+        const previousDrawer = room.drawer;
+        room.drawer = drawer.id;
+        room.phase = 'choosing';
+        if (previousDrawer && previousDrawer !== drawer.id) {
+            io.to(previousDrawer).emit('disableCanvas');
+        }
+        drawer.to(roomID).emit('choosing', { name: drawer.player.name });
+        const choices = get3Words(roomID);
+        const selection = this.chosenWord(drawer.id, choices);
+        drawer.emit('chooseWord', choices);
+        const word = await selection;
+        if (!word || games[roomID] !== room || room.state !== 'playing') return;
+        room.currentWord = word;
+        room.phase = 'drawing';
+        room.startTime = Date.now() / 1000;
+        drawer.emit('wordChosen', { word });
+        drawer.to(roomID).emit('hideWord', { word: splitter.splitGraphemes(word).map((char) => (char !== ' ' ? '_' : char)).join('') });
+        io.to(roomID).emit('clearCanvas');
+        drawer.to(roomID).emit('hints', getHints(word, roomID));
+        const waiting = wait(roomID, drawer, room.time);
+        io.to(roomID).emit('startTimer', { time: room.time });
+        const expired = await waiting;
+        if (games[roomID] !== room || room.state !== 'playing') return;
+        room.phase = 'choosing';
+        room.currentWord = '';
+        if (expired) drawer.to(roomID).emit('lastWord', { word });
+    }
+
+    onMessage(input) {
         const { io, socket } = this;
-        const players = Array.from(await io.in(socket.roomID).allSockets());
-        io.in(socket.roomID).emit('getPlayers',
-            players.reduce((acc, id) => {
-                const { player } = io.of('/').sockets.get(id);
-                acc.push(player);
-                return acc;
-            }, []));
+        const room = validate.room(socket);
+        validate.record(input);
+        const message = validate.text(input.message, 500);
+        refreshIdle(io, socket.roomID);
+        const data = { message, name: socket.player.name };
+        const currentWord = (room.currentWord || '').toLowerCase();
+        const guess = message.toLowerCase();
+        const distance = leven(guess, currentWord);
+        const closeGuess = room.language === 'Chinese'
+            ? splitter.countGraphemes(currentWord) >= 3 && distance === 1 : distance < 3;
+        if (currentWord && room.phase === 'drawing' && distance === 0) {
+            socket.emit('message', data);
+            if (room.drawer !== socket.id && !socket.hasGuessed) {
+                socket.hasGuessed = true;
+                room.players[socket.id].score += getScore(room.startTime, room.time);
+                room.players[room.drawer].score += BONUS;
+                socket.emit('correctGuess', { message: 'You guessed it right!', id: socket.id });
+                socket.to(socket.roomID).emit('correctGuess', { message: `${socket.player.name} has guessed the word!`, id: socket.id });
+                io.to(socket.roomID).emit('updateScore', {
+                    playerID: socket.id,
+                    score: room.players[socket.id].score,
+                    drawerID: room.drawer,
+                    drawerScore: room.players[room.drawer].score,
+                });
+                const guessers = Object.keys(room.players).filter((id) => id !== room.drawer);
+                if (guessers.every((id) => io.sockets.sockets.get(id)?.hasGuessed)) {
+                    round.emit(`everybodyGuessed:${socket.roomID}`);
+                }
+            }
+        } else {
+            io.to(socket.roomID).emit('message', data);
+            if (currentWord && closeGuess && room.phase === 'drawing'
+                && room.drawer !== socket.id && !socket.hasGuessed) {
+                socket.emit('closeGuess', { message: 'That was very close!' });
+            }
+        }
+    }
+
+    getPlayers() {
+        const room = validate.room(this.socket);
+        this.socket.emit('getPlayers', Object.values(room.players));
     }
 }
 

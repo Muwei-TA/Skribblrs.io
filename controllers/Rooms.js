@@ -1,5 +1,7 @@
 /* global games */
 const { nanoid } = require('nanoid');
+const validate = require('./validation');
+const { publicSettings, refreshIdle } = require('./lifecycle');
 
 class Room {
     constructor(io, socket) {
@@ -7,58 +9,61 @@ class Room {
         this.socket = socket;
     }
 
-    createPrivateRoom(player) {
-        const { socket } = this;
+    async createPrivateRoom(input) {
+        const { socket, io } = this;
+        validate.ensure(!socket.roomID, 'INVALID_STATE', '请先退出当前房间');
+        validate.ensure(Object.keys(games).length < 200, 'CAPACITY', '房间数量已达上限');
+        const player = validate.player(input, socket.id);
         const id = nanoid(15);
-        games[id] = {
+        const room = {
             rounds: 2,
-            time: 40 * 1000,
+            time: 40000,
             customWords: [],
-            language: 'English',
+            language: 'Chinese',
+            probability: 0.5,
+            hostID: socket.id,
+            state: 'lobby',
+            players: Object.create(null),
         };
-        games[id][socket.id] = {};
-        games[id][socket.id].score = 0;
-        games[id][socket.id].name = player.name;
-        games[id][socket.id].avatar = player.avatar;
-        console.log(games);
+        games[id] = room;
+        room.players[socket.id] = player;
         socket.player = player;
         socket.roomID = id;
-        socket.join(id);
+        await socket.join(id);
+        refreshIdle(io, id);
         socket.emit('newPrivateRoom', { gameID: id });
+        return { gameID: id };
     }
 
-    async joinRoom(data) {
+    async joinRoom(input) {
         const { io, socket } = this;
-        const roomID = data.id;
-        const players = Array.from(await io.in(roomID).allSockets());
-        games[roomID][socket.id] = {};
-        games[roomID][socket.id].score = 0;
-        games[roomID][socket.id].name = data.player.name;
-        games[roomID][socket.id].avatar = data.player.avatar;
-        socket.player = data.player;
-        socket.join(roomID);
-        socket.roomID = roomID;
-        socket.to(roomID).emit('joinRoom', data.player);
-        socket.emit('otherPlayers',
-            players.reduce((acc, id) => {
-                if (socket.id !== id) {
-                    const { player } = io.of('/').sockets.get(id);
-                    acc.push(player);
-                }
-                return acc;
-            }, []));
+        validate.record(input);
+        validate.ensure(typeof input.id === 'string' && /^[\w-]{15}$/.test(input.id));
+        const room = games[input.id];
+        validate.ensure(room, 'ROOM_NOT_FOUND', '房间不存在或已关闭');
+        validate.ensure(!socket.roomID, 'INVALID_STATE', '请先退出当前房间');
+        validate.ensure(room.state === 'lobby', 'INVALID_STATE', '游戏已经开始，暂时无法加入');
+        validate.ensure(Object.keys(room.players).length < 12, 'CAPACITY', '房间已满');
+        const player = validate.player(input.player, socket.id);
+        const others = Object.values(room.players);
+        room.players[socket.id] = player;
+        socket.player = player;
+        socket.roomID = input.id;
+        await socket.join(input.id);
+        socket.emit('settingsUpdate', publicSettings(room));
+        socket.to(input.id).emit('joinRoom', player);
+        socket.emit('otherPlayers', others);
+        refreshIdle(io, input.id);
     }
 
-    updateSettings(data) {
-        const { socket } = this;
-        const { customWords, ...rest } = data;
-        games[socket.roomID].time = Number(data.time) * 1000;
-        games[socket.roomID].rounds = Number(data.rounds);
-        games[socket.roomID].probability = Number(data.probability);
-        games[socket.roomID].customWords = customWords;
-        games[socket.roomID].language = data.language;
-        socket.to(socket.roomID).emit('settingsUpdate', rest);
-        console.log(games[socket.roomID]);
+    updateSettings(input) {
+        const { socket, io } = this;
+        const room = validate.host(socket);
+        validate.ensure(room.state === 'lobby', 'INVALID_STATE', '游戏开始后不能修改设置');
+        const settings = validate.settings(input);
+        Object.assign(room, settings);
+        socket.to(socket.roomID).emit('settingsUpdate', publicSettings(room));
+        refreshIdle(io, socket.roomID);
     }
 }
 

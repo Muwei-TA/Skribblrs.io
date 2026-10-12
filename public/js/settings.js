@@ -4,7 +4,7 @@ const socket = io();
 const params = window.location.toString().substring(window.location.toString().indexOf('?'));
 const searchParams = new URLSearchParams(params);
 const copyBtn = document.querySelector('#copy');
-let language = 'English';
+let language = document.querySelector('#language').value;
 
 const pop = new Howl({
     src: ['audio/pop.mp3'],
@@ -87,6 +87,42 @@ socket.on('disconnection', async (player) => {
     }
 });
 socket.on('startGame', showCanvasArea);
+function showOperationError(message) {
+    let notice = document.querySelector('#operationError');
+    if (!notice) {
+        notice = document.createElement('p');
+        notice.id = 'operationError';
+        notice.className = 'alert alert-danger text-center';
+        notice.setAttribute('role', 'alert');
+        document.body.prepend(notice);
+    }
+    notice.textContent = message;
+    return notice;
+}
+socket.on('operationError', ({ message }) => showOperationError(message));
+function showClosedRoom(message) {
+    const notice = showOperationError(message);
+    const back = document.createElement('a');
+    back.href = window.location.pathname;
+    back.className = 'btn btn-primary ms-3';
+    back.textContent = '返回首页';
+    notice.append(back);
+}
+socket.on('roomClosed', ({ message }) => showClosedRoom(message));
+socket.on('disconnect', () => showClosedRoom('连接已断开，请重新进入房间'));
+socket.on('newPrivateRoom', (data) => {
+    document.querySelector('#gameLink').value = `${window.location.protocol}//${window.location.host}/?id=${data.gameID}`;
+    putPlayer(my);
+});
+
+function requestOperation(event, data) {
+    return new Promise((resolve) => {
+        socket.timeout(5000).emit(event, data, (error, response) => {
+            if (error) showOperationError('连接中断或操作超时，请重试');
+            resolve(!error && response && response.ok);
+        });
+    });
+}
 
 if (searchParams.has('id')) {
     // player
@@ -95,6 +131,8 @@ if (searchParams.has('id')) {
     document.querySelector('#startGame').setAttribute('disabled', true);
     document.querySelector('#language').setAttribute('disabled', true);
     document.querySelector('#playGame').addEventListener('click', async () => {
+        my.id = socket.id;
+        if (!await requestOperation('joinRoom', { id: searchParams.get('id'), player: my })) return;
         await animateCSS('#landing>div>div', 'hinge');
         document.querySelector('#landing').remove();
         document.querySelector('#settings').classList.remove('d-none');
@@ -104,7 +142,6 @@ if (searchParams.has('id')) {
             document.querySelector('#gameLink').value = `${window.location.protocol}//${window.location.host}/?id=${searchParams.get('id')}`;
             putPlayer(my);
         }
-        socket.emit('joinRoom', { id: searchParams.get('id'), player: my });
     });
 } else {
     // room owner
@@ -114,17 +151,14 @@ if (searchParams.has('id')) {
     document.querySelector('#probability').addEventListener('change', updateSettings);
     document.querySelector('#language').addEventListener('change', updateSettings);
     document.querySelector('#createRoom').addEventListener('click', async () => {
+        my.id = socket.id;
+        if (!await requestOperation('newPrivateRoom', my)) return;
         await animateCSS('#landing>div>div', 'hinge');
         document.querySelector('#landing').remove();
         document.querySelector('#settings').classList.remove('d-none');
         animateCSS('#settings div', 'jackInTheBox');
         await animateCSS('#settings>div:nth-of-type(2)', 'jackInTheBox');
         my.id = socket.id;
-        socket.emit('newPrivateRoom', my);
-        socket.on('newPrivateRoom', (data) => {
-            document.querySelector('#gameLink').value = `${window.location.protocol}//${window.location.host}/?id=${data.gameID}`;
-            putPlayer(my);
-        });
     });
 }
 
@@ -135,16 +169,13 @@ copyBtn.addEventListener('click', (e) => {
 });
 
 document.querySelector('#startGame').addEventListener('click', async () => {
-    showCanvasArea();
     socket.emit('startGame');
-    socket.emit('getPlayers');
 });
 
-// eslint-disable-next-line no-unused-vars
 document.querySelector('#language').addEventListener('input', function () {
-    // eslint-disable-next-line no-unused-vars
     language = this.value;
-    if (language === 'English') return;
+    document.querySelector('#suggestions').innerHTML = '';
+    if (language === 'English' || language === 'Chinese') return;
     if (document.querySelector('#transliterate')) return;
     const script = document.createElement('script');
     script.id = 'transliterate';

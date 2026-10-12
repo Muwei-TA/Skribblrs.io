@@ -1,7 +1,7 @@
 /* global socket, pad, Howl, animateCSS, language */
 let timerID = 0;
-let pickWordID = 0;
 let hints = [];
+let drawingAllowed = false;
 
 const yourTurn = new Howl({
     src: ['audio/your-turn.mp3'],
@@ -36,15 +36,26 @@ document.querySelectorAll('button').forEach((button) => {
 });
 
 function chooseWord(word) {
-    clearTimeout(pickWordID);
-    pad.setReadOnly(false);
     socket.emit('chooseWord', { word });
+}
+
+socket.on('wordChosen', ({ word }) => {
+    drawingAllowed = true;
+    if (typeof pad !== 'undefined') pad.setReadOnly(!drawingAllowed);
+    document.querySelector('#tools').classList.remove('d-none');
+    animateCSS('#tools', 'fadeInUp');
     const p = document.createElement('p');
     p.textContent = word;
     p.classList.add('lead', 'fw-bold', 'mb-0');
     document.querySelector('#wordDiv').innerHTML = '';
     document.querySelector('#wordDiv').append(p);
-}
+});
+socket.on('disableCanvas', () => { drawingAllowed = false; });
+socket.on('disconnect', () => {
+    drawingAllowed = false;
+    if (typeof pad !== 'undefined') pad.setReadOnly(true);
+    clearInterval(timerID);
+});
 
 function createScoreCard(players) {
     players.forEach((player) => {
@@ -143,7 +154,8 @@ socket.on('settingsUpdate', (data) => {
     document.querySelector('#language').value = data.language;
     // eslint-disable-next-line no-global-assign
     language = data.language;
-    if (language === 'English') return;
+    document.querySelector('#suggestions').innerHTML = '';
+    if (language === 'English' || language === 'Chinese') return;
     if (document.querySelector('#transliterate')) return;
     const script = document.createElement('script');
     script.id = 'transliterate';
@@ -153,7 +165,7 @@ socket.on('settingsUpdate', (data) => {
 
 socket.on('hints', (data) => { hints = data; });
 
-socket.on('chooseWord', async ([word1, word2, word3]) => {
+socket.on('chooseWord', ([word1, word2, word3]) => {
     const p = document.createElement('p');
     const btn1 = document.createElement('button');
     const btn2 = document.createElement('button');
@@ -172,13 +184,10 @@ socket.on('chooseWord', async ([word1, word2, word3]) => {
     p.append(text);
     document.querySelector('#wordDiv').innerHTML = '';
     document.querySelector('#wordDiv').append(p, btn1, btn2, btn3);
-    document.querySelector('#tools').classList.remove('d-none');
-    await animateCSS('#tools', 'fadeInUp');
     document.querySelector('#clock').textContent = 0;
     clearInterval(timerID);
     clock.stop();
     yourTurn.play();
-    pickWordID = setTimeout(() => chooseWord(word2), 15000);
 });
 
 socket.on('hideWord', ({ word }) => {
@@ -248,9 +257,15 @@ socket.on('endGame', async ({ stats }) => {
     animateCSS('#gameEnded>div', 'fadeInRight');
 });
 
+let composingGuess = false;
+const guessInput = document.querySelector('#sendMessage>input');
+guessInput.addEventListener('compositionstart', () => { composingGuess = true; });
+guessInput.addEventListener('compositionend', () => { composingGuess = false; });
+
 // eslint-disable-next-line func-names
 document.querySelector('#sendMessage').addEventListener('submit', function (e) {
     e.preventDefault();
+    if (composingGuess || e.isComposing) return;
     const message = this.firstElementChild.value;
     this.firstElementChild.value = '';
     socket.emit('message', { message });

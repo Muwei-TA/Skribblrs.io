@@ -4,23 +4,26 @@
   "description": "A clone of skribbl.io",
   "main": "./bin/www",
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node ./bin/www",
+    "test": "node --test test/*.test.cjs",
+    "lint": "eslint app.js sockets.js bin/www controllers public/js"
   },
   "author": "Aditya D.S.",
   "license": "MIT",
   "dependencies": {
-    "chance": "^1.1.7",
-    "ejs": "^3.1.6",
-    "express": "^4.17.1",
+    "chance": "^1.1.13",
+    "ejs": "^3.1.10",
+    "express": "^4.22.3",
     "grapheme-splitter": "^1.0.4",
     "leven": "^3.1.0",
-    "nanoid": "^3.1.20",
-    "socket.io": "^3.1.0"
+    "nanoid": "^3.3.20",
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
-    "eslint": "^7.18.0",
-    "eslint-config-airbnb-base": "^14.2.1",
-    "eslint-plugin-import": "^2.22.1"
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0"
   },
   "repository": {
     "type": "git",

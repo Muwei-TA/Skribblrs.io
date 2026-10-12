@@ -17,10 +17,12 @@ const codes = {
 // eslint-disable-next-line func-names
 document.querySelector('#sendMessage>input').addEventListener('input', async function () {
     document.querySelector('#suggestions').innerHTML = '';
-    if (language === 'English' || this.value.trim() === '') return;
+    const code = codes[language.toLowerCase()];
+    if (!code || this.value.trim() === '') return;
     const text = this.value;
-    const res = await fetch(`${transliterationURL}/${codes[language.toLowerCase()]}/${text}`);
+    const res = await fetch(`${transliterationURL}/${code}/${text}`);
     const data = await res.json();
+    if (code !== codes[language.toLowerCase()] || text !== this.value) return;
     const suggestions = data.result;
     suggestions.forEach((suggestion) => {
         const li = document.createElement('li');

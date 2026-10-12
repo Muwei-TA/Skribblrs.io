@@ -1,22 +1,23 @@
 /* global MAX_POINTS, round, games */
-const { readFileSync } = require('fs');
 const Chance = require('chance');
 const GraphemeSplitter = require('grapheme-splitter');
 
 const chance = new Chance();
 const splitter = new GraphemeSplitter();
-const words = JSON.parse(readFileSync('words.json').toString('utf-8'));
+const words = require('../words.json');
+const { ensure } = require('./validation');
 
 function getScore(startTime, roundtime) {
     const now = Date.now() / 1000;
     const elapsedTime = now - startTime;
     const roundTime = roundtime / 1000;
-    return Math.floor(((roundTime - elapsedTime) / roundTime) * MAX_POINTS);
+    const score = Math.floor(((roundTime - elapsedTime) / roundTime) * MAX_POINTS);
+    return Math.max(0, Math.min(MAX_POINTS, score));
 }
 
 function populateDisplayTime(hints, roomID) {
     const roundTime = games[roomID].time;
-    const startTime = Math.floor(roundTime / 2);
+    const startTime = Math.floor(roundTime / (games[roomID].language === 'Chinese' ? 3 : 2));
     const hintInterval = Math.floor(startTime / hints.length);
     return hints.map((hint, i) => ({
         hint,
@@ -26,45 +27,72 @@ function populateDisplayTime(hints, roomID) {
 
 function getHints(word, roomID) {
     let hints = [];
-    const wordLength = splitter.countGraphemes(word);
-    const hintsCount = Math.floor(0.7 * wordLength);
     const graphemes = splitter.splitGraphemes(word);
+    const positions = graphemes.map((char, index) => (char !== ' ' ? index : -1))
+        .filter((index) => index !== -1);
+    const isChinese = games[roomID].language === 'Chinese';
+    const hintsCount = isChinese
+        ? Math.floor(positions.length / 3) : Math.floor(0.7 * positions.length);
     let prevHint = graphemes.map((char) => (char !== ' ' ? '_' : ' '));
-    while (hints.length !== hintsCount) {
-        const pos = chance.integer({ min: 0, max: wordLength - 1 });
-        // eslint-disable-next-line no-continue
-        if (prevHint[pos] !== '_') continue;
+    chance.pickset(positions, hintsCount).forEach((pos) => {
         prevHint = [...prevHint.slice(0, pos), graphemes[pos], ...prevHint.slice(pos + 1)];
         hints.push(prevHint);
-    }
+    });
     hints = hints.map((hint) => hint.join(''));
     return populateDisplayTime(hints, roomID);
 }
 
 function wait(roomID, drawer, ms) {
-    return new Promise((resolve, reject) => {
-        round.on('everybodyGuessed', ({ roomID: callerRoomID }) => {
-            if (callerRoomID === roomID) resolve();
-        });
-        drawer.on('disconnect', (err) => reject(err));
-        setTimeout(() => resolve(true), ms);
+    const room = games[roomID];
+    const event = `everybodyGuessed:${roomID}`;
+    return new Promise((resolve) => {
+        let timer;
+        let onGuessed;
+        let onDisconnect;
+        let cancel;
+        const finish = (expired) => {
+            clearTimeout(timer);
+            round.removeListener(event, onGuessed);
+            drawer.removeListener('disconnect', onDisconnect);
+            if (room && room.cancelTurn === cancel) delete room.cancelTurn;
+            resolve(expired);
+        };
+        cancel = () => finish(false);
+        onGuessed = () => finish(false);
+        onDisconnect = () => finish(false);
+        round.once(event, onGuessed);
+        drawer.once('disconnect', onDisconnect);
+        if (room) room.cancelTurn = cancel;
+        timer = setTimeout(() => finish(true), ms);
     });
 }
 
 function get3Words(roomID) {
-    const { probability: p } = games[roomID];
-    const language = games[roomID].language.toLowerCase();
-    if (games[roomID].customWords.length < 3) return chance.pickset(words[language], 3);
-    const pickedWords = new Set();
-    while (pickedWords.size !== 3) {
-        const wordSet = chance.weighted([words[language], games[roomID].customWords], [1 - p, p]);
-        pickedWords.add(chance.pickone(wordSet));
+    const room = games[roomID];
+    ensure(room && typeof room.language === 'string');
+    const language = room.language.toLowerCase();
+    ensure(Object.hasOwn(words, language));
+    let base = [...new Set(words[language])].filter((word) => word.length <= 64);
+    let custom = [...new Set((Array.isArray(room.customWords) ? room.customWords : [])
+        .filter((word) => typeof word === 'string' && word.trim() && word.length <= 40)
+        .map((word) => word.trim()))];
+    if (custom.length < 3) return chance.pickset(base, 3);
+    const probability = Number.isFinite(room.probability) ? room.probability : 0.5;
+    const picked = [];
+    for (let i = 0; i < 3; i++) {
+        const useCustom = custom.length > 0
+            && (base.length === 0
+                || chance.bool({ likelihood: Math.max(0, Math.min(1, probability)) * 100 }));
+        const word = chance.pickone(useCustom ? custom : base);
+        picked.push(word);
+        base = base.filter((candidate) => candidate !== word);
+        custom = custom.filter((candidate) => candidate !== word);
     }
-    return Array.from(pickedWords);
+    return picked;
 }
 
 function getPlayersCount(roomID) {
-    return Object.keys(games[roomID]).filter((key) => key.length === 20).length;
+    return Object.keys(games[roomID]?.players || {}).length;
 }
 
 module.exports = {
