@@ -65,6 +65,19 @@ function wait(roomID, drawer, ms) {
     });
 }
 
+function pause(roomID, ms) {
+    const room = games[roomID];
+    return new Promise((resolve) => {
+        const timer = setTimeout(finish, ms);
+        function finish() {
+            clearTimeout(timer);
+            if (room && room.cancelTurn === finish) delete room.cancelTurn;
+            resolve();
+        }
+        if (room) room.cancelTurn = finish;
+    });
+}
+
 function get3Words(roomID) {
     const room = games[roomID];
     ensure(room && typeof room.language === 'string');
@@ -98,5 +111,6 @@ module.exports = {
     getHints,
     wait,
     get3Words,
+    pause,
     getPlayersCount,
 };

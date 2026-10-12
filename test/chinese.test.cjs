@@ -64,7 +64,8 @@ function browser() {
             add: (...names) => names.forEach((name) => classes.add(name)),
             remove: (...names) => names.forEach((name) => classes.delete(name)),
             contains: (name) => classes.has(name),
-        }, getBoundingClientRect: () => ({ left: 0, top: 0 }),
+            toggle(name, force) { if (force) classes.add(name); else classes.delete(name); },
+        }, replaceChildren(...items) { this.children = items; }, getBoundingClientRect: () => ({ left: 0, top: 0 }),
             append(...items) { this.children.push(...items); }, appendChild(item) { this.children.push(item); },
             addEventListener(event, callback) { this.listeners[event] = callback; }, setAttribute() {} };
     }
@@ -265,4 +266,15 @@ test('real WebSocket clients synchronize language, guess Chinese words and earn 
     await host.event('closeGuess');
     host.send('message', { message: '自行车' });
     assert.equal((await host.event('correctGuess', (data) => data.id === host.id)).id, host.id);
+});
+
+test('turn settlement shows the answer and disables drawing before the next turn', () => {
+    const page = browser();
+    vm.runInContext(readFileSync('public/js/game.js', 'utf8'), page.context);
+    assert.equal(typeof page.handlers.turnEnded, 'function');
+    page.handlers.turnEnded({ word: '自行车', reason: 'allGuessed', delay: 3000,
+        scores: [{ id: 'guest', name: '玩家', score: 500, gained: 500 }] });
+    assert.equal(vm.runInContext('drawingAllowed', page.context), false);
+    assert.ok(page.node('#wordDiv').children.some((child) => /自行车/.test(child.textContent)));
+    assert.ok(page.node('#turnScores').children.some((child) => /玩家.*500/.test(child.textContent)));
 });

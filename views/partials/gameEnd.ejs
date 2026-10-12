@@ -1,10 +1,13 @@
 <section class="container d-none" id="gameEnded">
     <div class="row justify-content-center mx-0">
         <div class="col-lg-8 col-xl-6 bg-white rounded p-3 pt-0" id="statsDiv">
-            <h1 class="text-center display-5 py-5 fw-bold bg-white sticky-top">最终得分</h1>
+            <h1 class="text-center display-5 py-4 fw-bold bg-white sticky-top">最终得分</h1>
+            <div id="finalScores"></div>
+            <p id="replayStatus" class="text-center text-muted mb-0" role="status"></p>
         </div>
         <div class="text-center mt-3">
-            <a href="/" class="btn btn-primary">返回首页</a>
+            <button type="button" id="replayGame" class="btn btn-primary d-none me-2">再来一局</button>
+            <a href="/" class="btn btn-secondary">返回首页</a>
         </div>
     </div>
 </section>

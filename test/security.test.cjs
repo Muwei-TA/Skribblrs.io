@@ -27,7 +27,7 @@ async function service(t) {
                 if (index >= 0) { pending.splice(pending.indexOf(waiter), 1); clearTimeout(waiter.timer); waiter.resolve(packets.splice(index, 1)[0]); }
             }
         });
-        function next(match, timeout = 2000) {
+        function next(match, timeout = 5000) {
             const index = packets.findIndex(match);
             if (index >= 0) return Promise.resolve(packets.splice(index, 1)[0]);
             return new Promise((resolve, reject) => {
@@ -168,19 +168,48 @@ test('drawing floods are limited without blocking chat from another player', { t
     assert.equal((await guest.request('message', { message: '正常聊天' })).ok, true);
 });
 
-test('finishing a full game releases the room and all players can create new rooms', { timeout: 15000 }, async (t) => {
+test('synonym guesses settle turns and the host can replay in the same room', { timeout: 30000 }, async (t) => {
     const server = await service(t), { host, guest, gameID } = await room(server);
-    await host.request('settingsUpdate', settings); host.send('startGame'); await host.event('chooseWord');
-    await host.request('chooseWord', { word: '苹果' }); await guest.event('startTimer');
-    await guest.request('message', { message: '苹果' }); await guest.event('chooseWord');
-    await guest.request('chooseWord', { word: '自行车' }); await host.event('hideWord');
-    await host.request('message', { message: '自行车' });
-    const result = await host.event('endGame');
-    assert.ok(result.stats[host.id].score > 0); assert.ok(result.stats[guest.id].score > 0);
-    assert.equal((await host.request('getPlayers')).code, 'NOT_IN_ROOM');
-    assert.equal((await guest.request('joinRoom', { id: gameID, player: player('玩家') })).code, 'ROOM_NOT_FOUND');
-    assert.equal((await host.request('newPrivateRoom', player('新房主'))).ok, true);
-    assert.equal((await guest.request('newPrivateRoom', player('另一房主'))).ok, true);
+    const custom = { ...settings, customWords: ['自行车', '土豆', '西红柿'] };
+    await host.request('settingsUpdate', custom);
+    for (let game = 0; game < 2; game++) {
+        host.send('startGame');
+        const starting = await host.event('getPlayers');
+        assert.ok(starting.every((p) => p.score === 0));
+        const offered = await host.event('chooseWord');
+        assert.deepEqual(new Set(offered), new Set(custom.customWords));
+        await host.request('chooseWord', { word: '自行车' }); await guest.event('startTimer');
+        await guest.request('message', { message: '单车' });
+        await guest.event('correctGuess');
+        const settled = await host.event('turnEnded');
+        assert.equal(settled.word, '自行车');
+        assert.equal(settled.reason, 'allGuessed');
+        assert.equal(settled.delay, 3000);
+        assert.ok(settled.scores.find((p) => p.id === guest.id).gained > 0);
+        assert.equal(settled.scores.find((p) => p.id === host.id).gained, 250);
+        assert.equal((await host.request('drawing', drawing)).code, 'INVALID_STATE');
+        assert.equal((await host.request('startGame')).code, 'INVALID_STATE');
+        assert.equal(guest.queued('chooseWord'), false);
+        await guest.event('chooseWord');
+        await guest.request('chooseWord', { word: '土豆' }); await host.event('hideWord');
+        await host.request('message', { message: '马铃薯' });
+        await host.event('turnEnded');
+        const result = await host.event('endGame');
+        assert.equal(result.replayable, true);
+        assert.equal(result.hostID, host.id);
+        assert.ok(result.stats[host.id].score > 0); assert.ok(result.stats[guest.id].score > 0);
+        assert.equal((await host.request('getPlayers')).ok, true);
+        await host.event('getPlayers');
+        assert.equal((await host.request('settingsUpdate', custom)).code, 'INVALID_STATE');
+        assert.equal((await guest.request('returnToLobby')).code, 'FORBIDDEN');
+        assert.equal((await host.request('returnToLobby')).ok, true);
+        const lobby = await host.event('lobbyReady');
+        assert.ok(lobby.players.every((p) => p.score === 0));
+        assert.equal(lobby.settings.probability, 1);
+        await guest.event('lobbyReady');
+    }
+    const late = await server.connect();
+    assert.equal((await late.request('joinRoom', { id: gameID, player: player('新玩家') })).ok, true);
 });
 
 test('a disconnected drawer is skipped without stalling the next turn', { timeout: 15000 }, async (t) => {

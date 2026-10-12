@@ -35,6 +35,26 @@ document.querySelectorAll('button').forEach((button) => {
     button.addEventListener('mousedown', () => click.play());
 });
 
+function resetGameView() {
+    clearInterval(timerID);
+    hints = [];
+    drawingAllowed = false;
+    clock.stop();
+    document.querySelector('.players').replaceChildren();
+    document.querySelector('.messages').replaceChildren();
+    document.querySelector('#wordDiv').replaceChildren();
+    document.querySelector('#turnScores').replaceChildren();
+    document.querySelector('#turnSummary').classList.add('d-none');
+    document.querySelector('#clock').textContent = 0;
+    document.querySelector('#tools').classList.add('d-none');
+    if (typeof pad !== 'undefined') {
+        pad.setReadOnly(true);
+        pad.clear();
+    }
+}
+
+window.resetGameView = resetGameView;
+
 function chooseWord(word) {
     socket.emit('chooseWord', { word });
 }
@@ -139,6 +159,7 @@ function appendMessage({ name = '', message, id }, { correctGuess = false, close
 
 socket.on('getPlayers', (players) => createScoreCard(players));
 socket.on('choosing', ({ name }) => {
+    document.querySelector('#turnSummary').classList.add('d-none');
     const p = document.createElement('p');
     p.textContent = `${name} 正在选择词语`;
     p.classList.add('lead', 'fw-bold', 'mb-0');
@@ -159,6 +180,7 @@ socket.on('settingsUpdate', (data) => {
 socket.on('hints', (data) => { hints = data; });
 
 socket.on('chooseWord', ([word1, word2, word3]) => {
+    document.querySelector('#turnSummary').classList.add('d-none');
     const p = document.createElement('p');
     const btn1 = document.createElement('button');
     const btn2 = document.createElement('button');
@@ -198,6 +220,33 @@ socket.on('closeGuess', (data) => appendMessage(data, { closeGuess: true }));
 socket.on('correctGuess', (data) => appendMessage(data, { correctGuess: true }));
 socket.on('lastWord', ({ word }) => appendMessage({ message: `本轮词语是：${word}` }, { lastWord: true }));
 
+socket.on('turnEnded', ({ word, reason, scores }) => {
+    clearInterval(timerID);
+    clock.stop();
+    hints = [];
+    drawingAllowed = false;
+    if (typeof pad !== 'undefined') pad.setReadOnly(true);
+    document.querySelector('#tools').classList.add('d-none');
+    document.querySelector('#clock').textContent = 0;
+    document.querySelector('#wordDiv').innerHTML = '';
+    const answer = document.createElement('p');
+    answer.className = 'lead fw-bold mb-0';
+    answer.textContent = `本次答案：${word}`;
+    document.querySelector('#wordDiv').append(answer);
+    const reasons = { allGuessed: '所有玩家已猜对', timeout: '绘画时间到', drawerLeft: '绘画者已离开' };
+    document.querySelector('#turnReason').textContent = `${reasons[reason] || '本次绘画结束'}，3 秒后继续`;
+    const list = document.querySelector('#turnScores');
+    list.innerHTML = '';
+    scores.forEach(({ name, gained }) => {
+        const item = document.createElement('span');
+        item.className = 'me-3';
+        item.textContent = `${name} +${gained} 分`;
+        list.append(item);
+    });
+    document.querySelector('#turnSummary').classList.remove('d-none');
+    appendMessage({ message: `本次答案：${word}` }, { lastWord: true });
+});
+
 socket.on('updateScore', ({
     playerID,
     score,
@@ -208,14 +257,22 @@ socket.on('updateScore', ({
     document.querySelector(`#skribblr-${drawerID}>div p:last-child`).textContent = `得分：${drawerScore}`;
 });
 
-socket.on('endGame', async ({ stats }) => {
-    let players = Object.keys(stats).filter((val) => val.length === 20);
+socket.on('endGame', ({ stats, replayable = false, hostID, message }) => {
+    let players = Object.keys(stats);
     players = players.sort((id1, id2) => stats[id2].score - stats[id1].score);
 
     clearInterval(timerID);
     document.querySelector('#clock').textContent = 0;
-    await animateCSS('#gameZone', 'fadeOutLeft');
-    document.querySelector('#gameZone').remove();
+    drawingAllowed = false;
+    if (typeof pad !== 'undefined') pad.setReadOnly(true);
+    document.querySelector('#gameZone').classList.add('d-none');
+    document.querySelector('#finalScores').replaceChildren();
+    const replay = document.querySelector('#replayGame');
+    replay.classList.toggle('d-none', !replayable || socket.id !== hostID);
+    replay.disabled = false;
+    document.querySelector('#replayStatus').textContent = replayable
+        ? (socket.id === hostID ? '房间、词库和设置已保留，可再来一局。' : '等待房主开始下一局，房间和词库已保留。')
+        : (message || '房间已关闭，请返回首页重新创建房间。');
 
     players.forEach((playerID) => {
         const row = document.createElement('div');
@@ -243,12 +300,12 @@ socket.on('endGame', async ({ stats }) => {
         nameDiv.append(name);
         scoreDiv.append(score);
         row.append(imgDiv, nameDiv, scoreDiv);
-        document.querySelector('#statsDiv').append(row, document.createElement('hr'));
+        document.querySelector('#finalScores').append(row, document.createElement('hr'));
     });
     clock.stop();
     gameOver.play();
     document.querySelector('#gameEnded').classList.remove('d-none');
-    animateCSS('#gameEnded>div', 'fadeInRight');
+
 });
 
 let composingGuess = false;

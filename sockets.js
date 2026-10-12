@@ -48,6 +48,7 @@ module.exports.init = (server) => {
         guard('joinRoom', (data) => room.joinRoom(data), 10, 1);
         guard('settingsUpdate', (data) => room.updateSettings(data));
         guard('startGame', () => game.startGame());
+        guard('returnToLobby', () => game.returnToLobby(), 3, 1);
         guard('getPlayers', () => game.getPlayers());
         guard('chooseWord', (data) => game.chooseWord(data));
         guard('drawing', (data) => canvas.broadcastDrawing(data), 90, 60);

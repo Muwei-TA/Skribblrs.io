@@ -6,7 +6,7 @@ function closeRoom(io, roomID, message = '房间已关闭') {
     room.state = 'finished';
     clearTimeout(room.idleTimer);
     if (room.cancelTurn) room.cancelTurn();
-    if (wasPlaying) io.to(roomID).emit('endGame', { stats: room.players });
+    if (wasPlaying) io.to(roomID).emit('endGame', { stats: room.players, replayable: false, message });
     else io.to(roomID).emit('roomClosed', { message });
     const members = [...(io.sockets.adapter.rooms.get(roomID) || [])];
     delete games[roomID];
@@ -22,10 +22,30 @@ function closeRoom(io, roomID, message = '房间已关闭') {
 
 function refreshIdle(io, roomID) {
     const room = games[roomID];
-    if (!room || room.state !== 'lobby') return;
+    if (!room || !['lobby', 'finished'].includes(room.state)) return;
     clearTimeout(room.idleTimer);
     room.idleTimer = setTimeout(() => closeRoom(io, roomID, '房间长时间未使用，已关闭'), 15 * 60 * 1000);
     room.idleTimer.unref();
+}
+
+function finishGame(io, roomID) {
+    const room = games[roomID];
+    if (!room) return;
+    room.state = 'finished';
+    room.phase = 'finished';
+    room.currentWord = '';
+    delete room.drawer;
+    io.to(roomID).emit('endGame', { stats: room.players, replayable: true, hostID: room.hostID });
+    refreshIdle(io, roomID);
+}
+
+function resetScores(io, room) {
+    Object.values(room.players).forEach((player) => {
+        // Player objects belong to this room; reset them for a new game.
+        Object.assign(player, { score: 0 });
+        const socket = io.sockets.sockets.get(player.id);
+        if (socket) socket.hasGuessed = false;
+    });
 }
 
 function publicSettings(room) {
@@ -37,4 +57,4 @@ function publicSettings(room) {
     };
 }
 
-module.exports = { closeRoom, refreshIdle, publicSettings };
+module.exports = { closeRoom, finishGame, resetScores, refreshIdle, publicSettings };

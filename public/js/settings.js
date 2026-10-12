@@ -1,4 +1,4 @@
-/* global io, my, Howl, WordBank */
+/* global io, my, Howl, WordBank, resetGameView, pad, Sketchpad */
 const socket = io();
 const params = window.location.toString().substring(window.location.toString().indexOf('?'));
 const searchParams = new URLSearchParams(params);
@@ -101,7 +101,7 @@ function putPlayer(player) {
     const p = document.createElement('p');
     const text = document.createTextNode(player.name);
     img.addEventListener('error', () => { img.src = '/images/avatar-default.svg'; }, { once: true });
-    div.id = `skribblr-${player.id}`;
+    div.id = `lobby-player-${player.id}`;
     p.appendChild(text);
     p.classList.add('text-center');
     img.src = player.avatar;
@@ -115,29 +115,78 @@ function putPlayer(player) {
     animateCSS(div, 'fadeInDown', false);
 }
 
-function showCanvasArea() {
-    const sketchpad = document.createElement('script');
-    const canvas = document.createElement('script');
-    sketchpad.src = 'https://cdn.jsdelivr.net/npm/responsive-sketchpad/dist/sketchpad.min.js';
-    canvas.src = 'js/canvas.js';
-    document.body.append(sketchpad);
-    sketchpad.addEventListener('load', async () => {
-        document.body.append(canvas);
-        animateCSS('#settings>div', 'fadeOutLeft');
-        animateCSS('#settings>div:nth-of-type(2)', 'fadeOutRight');
-        document.querySelector('#gameZone').classList.remove('d-none');
-        await animateCSS('#gameZone', 'fadeInDown');
-        document.querySelector('#settings').remove();
-    });
+let canvasLoading;
+function loadCanvas() {
+    if (!canvasLoading) {
+        canvasLoading = new Promise((resolve, reject) => {
+            const appendCanvas = () => {
+                const canvas = document.createElement('script');
+                canvas.src = 'js/canvas.js';
+                canvas.addEventListener('load', resolve);
+                canvas.addEventListener('error', () => {
+                    canvas.remove();
+                    reject(new Error('画布加载失败，请检查网络'));
+                });
+                document.body.append(canvas);
+            };
+            if (typeof Sketchpad !== 'undefined') {
+                appendCanvas();
+            } else {
+                const sketchpad = document.createElement('script');
+                sketchpad.src = 'https://cdn.jsdelivr.net/npm/responsive-sketchpad/dist/sketchpad.min.js';
+                sketchpad.addEventListener('error', () => {
+                    sketchpad.remove();
+                    reject(new Error('绘图组件加载失败，请检查网络'));
+                });
+                sketchpad.addEventListener('load', appendCanvas);
+                document.body.append(sketchpad);
+            }
+        }).catch((error) => {
+            canvasLoading = undefined;
+            throw error;
+        });
+    }
+    return canvasLoading;
+}
+
+async function showCanvasArea() {
+    resetGameView();
+    document.querySelector('#settings').classList.add('d-none');
+    document.querySelector('#gameEnded').classList.add('d-none');
+    document.querySelector('#gameZone').classList.remove('d-none');
+    try {
+        await loadCanvas();
+        pad.resize(document.getElementById('sketchpad').offsetWidth);
+        const notice = document.querySelector('#operationError');
+        if (notice && ['画布加载失败，请检查网络', '绘图组件加载失败，请检查网络'].includes(notice.textContent)) notice.remove();
+    } catch (error) {
+        showOperationError(error.message);
+    }
 }
 
 socket.on('joinRoom', putPlayer);
 socket.on('otherPlayers', (players) => players.forEach((player) => putPlayer(player)));
-socket.on('disconnection', async (player) => {
-    if (document.querySelector(`#skribblr-${player.id}`)) {
-        exit.play();
-        await animateCSS(`#skribblr-${player.id}`, 'fadeOutUp');
-        document.querySelector(`#skribblr-${player.id}`).remove();
+socket.on('disconnection', (player) => {
+    for (const id of [`lobby-player-${player.id}`, `skribblr-${player.id}`]) {
+        const node = document.getElementById(id);
+        if (node) node.remove();
+    }
+    exit.play();
+});
+socket.on('lobbyReady', ({ players, settings }) => {
+    resetGameView();
+    document.querySelector('#gameZone').classList.add('d-none');
+    document.querySelector('#gameEnded').classList.add('d-none');
+    document.querySelector('#settings').classList.remove('d-none');
+    document.querySelector('#playersDiv').replaceChildren();
+    players.forEach(putPlayer);
+    document.querySelector('#rounds').value = settings.rounds;
+    document.querySelector('#time').value = settings.time;
+    document.querySelector('#language').value = settings.language;
+    const probability = document.querySelector('#probability');
+    if (probability) {
+        probability.value = settings.probability;
+        updateProbabilityLabel();
     }
 });
 socket.on('startGame', showCanvasArea);
@@ -155,6 +204,7 @@ function showOperationError(message) {
 }
 socket.on('operationError', ({ message }) => showOperationError(message));
 function showClosedRoom(message) {
+    document.querySelector('#replayGame').disabled = true;
     const notice = showOperationError(message);
     const back = document.createElement('a');
     back.href = window.location.pathname;
@@ -226,4 +276,10 @@ copyBtn.addEventListener('click', (e) => {
 document.querySelector('#startGame').addEventListener('click', async () => {
     if (searchParams.has('id') || importingWordBank) return;
     if (await updateSettings()) socket.emit('startGame');
+});
+
+document.querySelector('#replayGame').addEventListener('click', async () => {
+    const button = document.querySelector('#replayGame');
+    button.disabled = true;
+    if (!await requestOperation('returnToLobby')) button.disabled = false;
 });

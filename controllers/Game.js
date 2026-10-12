@@ -2,10 +2,11 @@
 const leven = require('leven');
 const GraphemeSplitter = require('grapheme-splitter');
 const {
-    get3Words, getScore, wait, getHints,
+    get3Words, getScore, wait, getHints, pause,
 } = require('./helpers');
 const validate = require('./validation');
-const { closeRoom, refreshIdle } = require('./lifecycle');
+const { finishGame, resetScores, refreshIdle, publicSettings } = require('./lifecycle');
+const { matchesAnswer } = require('./answers');
 
 const splitter = new GraphemeSplitter();
 class Game {
@@ -54,6 +55,7 @@ class Game {
         const players = Object.keys(room.players);
         validate.ensure(players.length >= 2, 'INVALID_STATE', '至少需要两名玩家才能开始');
         const { roomID } = socket;
+        resetScores(io, room);
         room.state = 'playing';
         clearTimeout(room.idleTimer);
         io.to(roomID).emit('startGame');
@@ -67,8 +69,22 @@ class Game {
                 }
             }
         } finally {
-            if (games[roomID] === room) closeRoom(io, roomID);
+            if (games[roomID] === room) finishGame(io, roomID);
         }
+    }
+
+    returnToLobby() {
+        const { socket, io } = this;
+        const room = validate.host(socket);
+        validate.ensure(room.state === 'finished', 'INVALID_STATE', '请等待本局游戏结束');
+        room.state = 'lobby';
+        room.phase = 'lobby';
+        resetScores(io, room);
+        refreshIdle(io, socket.roomID);
+        io.to(socket.roomID).emit('lobbyReady', {
+            players: Object.values(room.players),
+            settings: publicSettings(room),
+        });
     }
 
     async giveTurnTo(roomID, players, index) {
@@ -80,6 +96,7 @@ class Game {
             const player = io.sockets.sockets.get(id);
             if (player) player.hasGuessed = false;
         });
+        const before = new Map(Object.values(room.players).map((player) => [player.id, player.score]));
         room.currentWord = '';
         const previousDrawer = room.drawer;
         room.drawer = drawer.id;
@@ -104,9 +121,19 @@ class Game {
         io.to(roomID).emit('startTimer', { time: room.time });
         const expired = await waiting;
         if (games[roomID] !== room || room.state !== 'playing') return;
-        room.phase = 'choosing';
+        room.phase = 'settling';
         room.currentWord = '';
-        if (expired) drawer.to(roomID).emit('lastWord', { word });
+        io.to(roomID).emit('disableCanvas');
+        io.to(roomID).emit('turnEnded', {
+            word,
+            reason: !room.players[drawer.id] ? 'drawerLeft' : (expired ? 'timeout' : 'allGuessed'),
+            delay: 3000,
+            scores: Object.values(room.players).map((player) => ({
+                id: player.id, name: player.name, score: player.score,
+                gained: player.score - (before.get(player.id) || 0),
+            })),
+        });
+        await pause(roomID, 3000);
     }
 
     onMessage(input) {
@@ -120,7 +147,7 @@ class Game {
         const guess = message.toLowerCase();
         const distance = leven(guess, currentWord);
         const closeGuess = splitter.countGraphemes(currentWord) >= 3 && distance === 1;
-        if (currentWord && room.phase === 'drawing' && distance === 0) {
+        if (currentWord && room.phase === 'drawing' && matchesAnswer(currentWord, message)) {
             socket.emit('message', data);
             if (room.drawer !== socket.id && !socket.hasGuessed) {
                 socket.hasGuessed = true;

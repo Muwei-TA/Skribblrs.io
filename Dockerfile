@@ -11,7 +11,7 @@ RUN --mount=type=secret,id=npm_ca \
     if [ -f /run/secrets/npm_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/npm_ca; fi; \
     npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
-COPY --chown=node:node app.js sockets.js words.json ./
+COPY --chown=node:node app.js sockets.js words.json word-aliases.json ./
 COPY --chown=node:node bin ./bin
 COPY --chown=node:node controllers ./controllers
 COPY --chown=node:node public ./public
